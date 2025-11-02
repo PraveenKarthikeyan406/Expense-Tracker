@@ -1,0 +1,20 @@
+{
+  "name": "fastbudget-clone",
+  "version": "1.0.0",
+  "description": "Fast Budget Expense Tracker",
+  "scripts": {
+    "start": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "backend": "cd backend && npm start",
+    "frontend": "cd frontend && npm start",
+    "install-all": "npm install && cd backend && npm install && cd ../frontend && npm install",
+    "dev": "concurrently \"npm run backend:dev\" \"npm run frontend\"",
+    "backend:dev": "cd backend && npm run dev"
+  },
+  "dependencies": {
+    "mongodb": "^6.20.0",
+    "concurrently": "^8.2.0"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.0"
+  }
+}

@@ -5,20 +5,20 @@ const Dashboard = ({ expenses }) => {
   
 
   const calculateSummary = () => {
-    const balance = 13627.71;
-    const creditCards = -8249.00;
+    const balance = 0;
+    const creditCards = 0;
     const totalBalance = balance + creditCards;
     
     const thisMonth = {
-      income: 1452.00,
-      expenses: -573.53,
-      balance: 878.47
+      income: 0,
+      expenses: 0,
+      balance: 0
     };
     
     const lastMonth = {
-      income: 1500.00,
-      expenses: -388.76,
-      balance: 1111.24
+      income: 0,
+      expenses: 0,
+      balance: 0
     };
     
     return { balance, creditCards, totalBalance, thisMonth, lastMonth };
@@ -27,18 +27,18 @@ const Dashboard = ({ expenses }) => {
   const summary = calculateSummary();
   
   const accounts = [
-    { name: 'Wallet', balance: 90.24, currency: 'USD' },
-    { name: 'Bank account', balance: 13537.47, currency: 'USD' }
+    { name: 'Wallet', balance: 0, currency: 'INR' },
+    { name: 'Bank account', balance: 0, currency: 'INR' }
   ];
   
   const creditCards = [
-    { name: 'Credit card', balance: -189.00, usedPercentage: 19 }
+    { name: 'Credit card', balance: 0, usedPercentage: 0 }
   ];
   
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'USD',
+      currency: 'INR',
       minimumFractionDigits: 2
     }).format(amount);
   };

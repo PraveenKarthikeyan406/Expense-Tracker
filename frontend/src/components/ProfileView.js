@@ -16,10 +16,14 @@ import {
   differenceInCalendarWeeks
 } from 'date-fns';
 
-export default function ProfileView({ user, token }) {
+export default function ProfileView({ user, token, onGenerateReport }) {
   const [expenses, setExpenses] = useState([]);
   const [selectedPeriod, setSelectedPeriod] = useState('week');
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedExpenseCategory, setSelectedExpenseCategory] = useState('all');
+  const [selectedIncomeCategory, setSelectedIncomeCategory] = useState('all');
+  const [showExpenseDropdown, setShowExpenseDropdown] = useState(false);
+  const [showIncomeDropdown, setShowIncomeDropdown] = useState(false);
 
   useEffect(() => {
     async function loadExpenses() {
@@ -51,6 +55,7 @@ export default function ProfileView({ user, token }) {
 
   const calculateTotals = () => {
     const categories = {};
+    const incomeCategories = {};
     let totalSpend = 0;
     let totalEarn = 0;
 
@@ -64,24 +69,70 @@ export default function ProfileView({ user, token }) {
         categories[category] = (categories[category] || 0) + val;
       } else {
         totalEarn += amount;
+        incomeCategories[category] = (incomeCategories[category] || 0) + amount;
       }
     });
 
-    return { categories, totalSpend, totalEarn };
+    return { categories, incomeCategories, totalSpend, totalEarn };
   };
 
-  const { categories, totalSpend, totalEarn } = calculateTotals();
+  const { categories, incomeCategories, totalSpend, totalEarn } = calculateTotals();
+
+  // Filter expenses based on selected category
+  const filteredExpenses = expenses.filter(exp => {
+    // If "none" is selected for expenses, hide all expenses
+    if (exp.amount < 0 && selectedExpenseCategory === 'none') {
+      return false;
+    }
+    // If "none" is selected for income, hide all income
+    if (exp.amount >= 0 && selectedIncomeCategory === 'none') {
+      return false;
+    }
+    // Filter by specific category
+    if (exp.amount < 0 && selectedExpenseCategory !== 'all' && selectedExpenseCategory !== 'none') {
+      return (exp.category || 'Uncategorized') === selectedExpenseCategory;
+    }
+    if (exp.amount >= 0 && selectedIncomeCategory !== 'all' && selectedIncomeCategory !== 'none') {
+      return (exp.category || 'Uncategorized') === selectedIncomeCategory;
+    }
+    return true;
+  });
+
+  // Calculate totals for filtered expenses (for pie chart)
+  const calculateFilteredTotals = () => {
+    const filteredCategories = {};
+    let filteredTotalSpend = 0;
+
+    filteredExpenses.forEach(expense => {
+      const amount = expense.amount;
+      const category = expense.category || 'Uncategorized';
+
+      if (amount < 0) {
+        const val = Math.abs(amount);
+        filteredTotalSpend += val;
+        filteredCategories[category] = (filteredCategories[category] || 0) + val;
+      }
+    });
+
+    return { filteredCategories, filteredTotalSpend };
+  };
+
+  const { filteredCategories, filteredTotalSpend } = calculateFilteredTotals();
+
+  const expenseCategories = Object.keys(categories);
+  const incomeCategoriesList = Object.keys(incomeCategories);
 
   const generatePieChart = () => {
-    if (totalSpend <= 0) return [];
+    if (selectedExpenseCategory === 'none') return [];
+    if (filteredTotalSpend <= 0) return [];
     const colors = ['#36A2EB', '#FF6384', '#FFCE56', '#4BC0C0', '#9966FF', '#FF9F40'];
-    const entries = Object.entries(categories)
+    const entries = Object.entries(filteredCategories)
       .map(([name, value]) => ({ name, value }))
       .sort((a, b) => b.value - a.value);
 
     let cumulativePercent = 0;
     const segments = entries.map((entry, index) => {
-      const percent = (entry.value / totalSpend) * 100;
+      const percent = (entry.value / filteredTotalSpend) * 100;
       const startPercent = cumulativePercent;
       cumulativePercent += percent;
       return {
@@ -195,17 +246,93 @@ export default function ProfileView({ user, token }) {
 
       <div className="summary-cards">
         <div className="summary-card income">
-          <h3>Income</h3>
+          <div className="summary-header-row">
+            <h3>Income</h3>
+            <div className="category-filter-container">
+              <button 
+                className="category-filter-btn"
+                onClick={() => setShowIncomeDropdown(!showIncomeDropdown)}
+              >
+                {selectedIncomeCategory === 'all' ? 'All Categories' : selectedIncomeCategory === 'none' ? 'None' : selectedIncomeCategory} ▼
+              </button>
+              {showIncomeDropdown && (
+                <div className="category-dropdown">
+                  <button 
+                    className={`category-option ${selectedIncomeCategory === 'all' ? 'active' : ''}`}
+                    onClick={() => { setSelectedIncomeCategory('all'); setShowIncomeDropdown(false); }}
+                  >
+                    All Categories
+                  </button>
+                  <button 
+                    className={`category-option ${selectedIncomeCategory === 'none' ? 'active' : ''}`}
+                    onClick={() => { setSelectedIncomeCategory('none'); setShowIncomeDropdown(false); }}
+                  >
+                    ❌ None
+                  </button>
+                  {incomeCategoriesList.map(cat => (
+                    <button 
+                      key={cat}
+                      className={`category-option ${selectedIncomeCategory === cat ? 'active' : ''}`}
+                      onClick={() => { setSelectedIncomeCategory(cat); setShowIncomeDropdown(false); }}
+                    >
+                      {getCategoryEmoji(cat)} {cat}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
           <p className="amount">+₹{totalEarn.toFixed(2)}</p>
         </div>
         <div className="summary-card expenses">
-          <h3>Expenses</h3>
+          <div className="summary-header-row">
+            <h3>Expenses</h3>
+            <div className="category-filter-container">
+              <button 
+                className="category-filter-btn"
+                onClick={() => setShowExpenseDropdown(!showExpenseDropdown)}
+              >
+                {selectedExpenseCategory === 'all' ? 'All Categories' : selectedExpenseCategory === 'none' ? 'None' : selectedExpenseCategory} ▼
+              </button>
+              {showExpenseDropdown && (
+                <div className="category-dropdown">
+                  <button 
+                    className={`category-option ${selectedExpenseCategory === 'all' ? 'active' : ''}`}
+                    onClick={() => { setSelectedExpenseCategory('all'); setShowExpenseDropdown(false); }}
+                  >
+                    All Categories
+                  </button>
+                  <button 
+                    className={`category-option ${selectedExpenseCategory === 'none' ? 'active' : ''}`}
+                    onClick={() => { setSelectedExpenseCategory('none'); setShowExpenseDropdown(false); }}
+                  >
+                    ❌ None
+                  </button>
+                  {expenseCategories.map(cat => (
+                    <button 
+                      key={cat}
+                      className={`category-option ${selectedExpenseCategory === cat ? 'active' : ''}`}
+                      onClick={() => { setSelectedExpenseCategory(cat); setShowExpenseDropdown(false); }}
+                    >
+                      {getCategoryEmoji(cat)} {cat}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
           <p className="amount">-₹{totalSpend.toFixed(2)}</p>
         </div>
         <div className="summary-card balance">
           <h3>Balance</h3>
           <p className="amount">₹{(totalEarn - totalSpend).toFixed(2)}</p>
         </div>
+      </div>
+
+      <div className="report-button-container">
+        <button className="report-button" onClick={onGenerateReport}>
+          📊 Generate Report
+        </button>
       </div>
 
       <div className="charts-container">
@@ -272,9 +399,9 @@ export default function ProfileView({ user, token }) {
 
         <div className="expense-list">
           <h3>Recent Transactions</h3>
-          {expenses.length > 0 ? (
+          {filteredExpenses.length > 0 ? (
             <div className="transactions">
-              {expenses.map((expense, index) => (
+              {filteredExpenses.map((expense, index) => (
                 <div key={index} className={`transaction-item ${expense.amount < 0 ? 'expense' : 'income'}`}>
                   <div className="transaction-details">
                     <p className="transaction-title">
@@ -297,7 +424,11 @@ export default function ProfileView({ user, token }) {
               ))}
             </div>
           ) : (
-            <p className="no-data">No transactions found for this period</p>
+            <p className="no-data">
+              {expenses.length === 0 
+                ? 'No transactions found for this period' 
+                : 'No transactions found for the selected category'}
+            </p>
           )}
         </div>
       </div>

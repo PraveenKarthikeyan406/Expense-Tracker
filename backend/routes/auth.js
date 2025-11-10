@@ -8,16 +8,17 @@ const auth = require('../middleware/auth');
 // Register
 router.post('/register', async (req, res) => {
   try {
-    const { email, password, name } = req.body;
+    const { email, password, name, role } = req.body;
     const exists = await User.findOne({ email });
     if (exists) return res.status(400).json({ message: 'User already exists' });
 
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
-    const user = new User({ email, passwordHash, name });
+    const userRole = role || 'user'; // Default to 'user' if not provided
+    const user = new User({ email, passwordHash, name, role: userRole });
     await user.save();
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
-    res.json({ token, user: { id: user._id, email, name } });
+    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET);
+    res.json({ token, user: { id: user._id, email, name, role: user.role } });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -32,8 +33,8 @@ router.post('/login', async (req, res) => {
     if(!user) return res.status(400).json({ message: 'Invalid credentials' });
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if(!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
-    const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET);
-    res.json({ token, user: { id: user._id, email: user.email, name: user.name } });
+    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET);
+    res.json({ token, user: { id: user._id, email: user.email, name: user.name, role: user.role } });
   } catch (err) {
     res.status(500).json({ message: 'Server error' });
   }

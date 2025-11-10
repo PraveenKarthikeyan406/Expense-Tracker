@@ -6,6 +6,7 @@ const AuthModal = ({ onAuth, initialMode = 'login', openByDefault = false, showI
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
+  const [role, setRole] = useState('user');
   const [isModalOpen, setIsModalOpen] = useState(openByDefault);
 
   const handleSubmit = async (e) => {
@@ -13,7 +14,7 @@ const AuthModal = ({ onAuth, initialMode = 'login', openByDefault = false, showI
     try {
       const res = mode === 'login'
         ? await login({ email, password })
-        : await register({ email, password, name });
+        : await register({ email, password, name, role });
       onAuth(res.token, res.user);
       setIsModalOpen(false);
     } catch (err) {
@@ -46,6 +47,34 @@ const AuthModal = ({ onAuth, initialMode = 'login', openByDefault = false, showI
               />
             </div>
             <form onSubmit={handleSubmit}>
+              <div className="input-group">
+                <label>Account Type</label>
+                <div className="role-selector">
+                  <label className={`role-option ${role === 'user' ? 'active' : ''}`}>
+                    <input 
+                      type="radio" 
+                      name="role" 
+                      value="user" 
+                      checked={role === 'user'} 
+                      onChange={e => setRole(e.target.value)}
+                    />
+                    <span className="role-icon">👤</span>
+                    <span className="role-label">User</span>
+                  </label>
+                  <label className={`role-option ${role === 'admin' ? 'active' : ''}`}>
+                    <input 
+                      type="radio" 
+                      name="role" 
+                      value="admin" 
+                      checked={role === 'admin'} 
+                      onChange={e => setRole(e.target.value)}
+                    />
+                    <span className="role-icon">👨‍💼</span>
+                    <span className="role-label">Admin</span>
+                  </label>
+                </div>
+              </div>
+              
               {mode === 'register' &&
                 <div className="input-group">
                   <label htmlFor="name">Name</label>

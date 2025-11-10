@@ -23,7 +23,7 @@ export default function CalendarView({ token, user }) {
 
   const monthStart = startOfMonth(currentMonth);
   const monthEnd = endOfMonth(monthStart);
-  const startDate = startOfWeek(monthStart, { weekStartsOn: 1 }); // Monday start
+  const startDate = startOfWeek(monthStart, { weekStartsOn: 1 }); 
 
   const rows = [];
   let day = startDate;

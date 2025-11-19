@@ -1,8 +1,8 @@
 import axios from 'axios';
 const API = process.env.REACT_APP_API || 'http://localhost:5000';
 
-export async function register({ email, password, name }){
-  const res = await axios.post(`${API}/api/auth/register`, { email, password, name });
+export async function register({ email, password, name, role }){
+  const res = await axios.post(`${API}/api/auth/register`, { email, password, name, role });
   return res.data;
 }
 export async function login({ email, password }){
@@ -11,5 +11,15 @@ export async function login({ email, password }){
 }
 export async function getMe(token){
   const res = await axios.get(`${API}/api/auth/me`, { headers: { Authorization: `Bearer ${token}` }});
+  return res.data;
+}
+
+export async function forgotPassword({ email, category }){
+  const res = await axios.post(`${API}/api/auth/forgot-password`, { email, category });
+  return res.data;
+}
+
+export async function resetPassword({ email, category, otp, newPassword }){
+  const res = await axios.post(`${API}/api/auth/reset-password`, { email, category, otp, newPassword });
   return res.data;
 }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { login, register } from '../services/auth';
+import { login, register, forgotPassword, resetPassword } from '../services/auth';
 
 const AuthModal = ({ onAuth, initialMode = 'login', openByDefault = false, showInlineButtons = true }) => {
   const [mode, setMode] = useState(initialMode);
@@ -9,16 +9,118 @@ const AuthModal = ({ onAuth, initialMode = 'login', openByDefault = false, showI
   const [role, setRole] = useState('user');
   const [isModalOpen, setIsModalOpen] = useState(openByDefault);
 
+  const [isForgotFlow, setIsForgotFlow] = useState(false);
+  const [forgotStep, setForgotStep] = useState('request');
+  const [category, setCategory] = useState('user');
+  const [otp, setOtp] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [message, setMessage] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
+
+  const resetTransientState = () => {
+    setIsForgotFlow(false);
+    setForgotStep('request');
+    setCategory('user');
+    setOtp('');
+    setNewPassword('');
+    setConfirmNewPassword('');
+    setMessage(null);
+    setSubmitting(false);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setMessage(null);
     try {
       const res = mode === 'login'
         ? await login({ email, password })
         : await register({ email, password, name, role });
       onAuth(res.token, res.user);
+      resetTransientState();
       setIsModalOpen(false);
     } catch (err) {
-      alert(err?.response?.data?.message || 'Auth failed');
+      setMessage({
+        type: 'error',
+        text: err?.response?.data?.message || 'Auth failed'
+      });
+    }
+  };
+
+  const handleOpenLogin = () => {
+    setMode('login');
+    resetTransientState();
+    setIsModalOpen(true);
+  };
+
+  const handleOpenRegister = () => {
+    setMode('register');
+    resetTransientState();
+    setIsModalOpen(true);
+  };
+
+  const startForgotFlow = () => {
+    setIsForgotFlow(true);
+    setForgotStep('request');
+    setCategory(role || 'user');
+    setMessage(null);
+  };
+
+  const handleForgotRequestSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
+    setMessage(null);
+    try {
+      await forgotPassword({ email, category });
+      setMessage({
+        type: 'success',
+        text: 'OTP sent to your email address.'
+      });
+      setForgotStep('reset');
+    } catch (err) {
+      setMessage({
+        type: 'error',
+        text: err?.response?.data?.message || 'Failed to send OTP. Please try again.'
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleResetPasswordSubmit = async (e) => {
+    e.preventDefault();
+    setMessage(null);
+
+    if (!otp || !newPassword || !confirmNewPassword) {
+      setMessage({ type: 'error', text: 'All fields are required.' });
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      setMessage({ type: 'error', text: 'Passwords do not match' });
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await resetPassword({ email, category, otp, newPassword });
+      setMessage({
+        type: 'success',
+        text: res?.message || 'Password reset successful. Please login.'
+      });
+      setIsForgotFlow(false);
+      setForgotStep('request');
+      setPassword('');
+      setOtp('');
+      setNewPassword('');
+      setConfirmNewPassword('');
+    } catch (err) {
+      setMessage({
+        type: 'error',
+        text: err?.response?.data?.message || 'Failed to reset password. Please try again.'
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -26,8 +128,18 @@ const AuthModal = ({ onAuth, initialMode = 'login', openByDefault = false, showI
     <>
       {showInlineButtons && (
         <div className="auth-buttons">
-          <button className="auth-btn login-btn" onClick={() => {setMode('login'); setIsModalOpen(true);}}>Sign In</button>
-          <button className="auth-btn signup-btn" onClick={() => {setMode('register'); setIsModalOpen(true);}}>Sign Up</button>
+          <button
+            className="auth-btn login-btn"
+            onClick={handleOpenLogin}
+          >
+            Sign In
+          </button>
+          <button
+            className="auth-btn signup-btn"
+            onClick={handleOpenRegister}
+          >
+            Sign Up
+          </button>
         </div>
       )}
       
@@ -35,7 +147,13 @@ const AuthModal = ({ onAuth, initialMode = 'login', openByDefault = false, showI
         <div className="modal-backdrop">
           <div className={`auth-modal ${mode}`} onClick={e => e.stopPropagation()}>
             <div className="modal-header">
-              <h2>{mode === 'login' ? 'Sign In' : 'Create Account'}</h2>
+              <h2>
+                {isForgotFlow
+                  ? 'Reset Password'
+                  : mode === 'login'
+                    ? 'Sign In'
+                    : 'Create Account'}
+              </h2>
             </div>
             <div className="auth-image-container">
               <img 
@@ -46,56 +164,212 @@ const AuthModal = ({ onAuth, initialMode = 'login', openByDefault = false, showI
                 className="auth-image" 
               />
             </div>
-            <form onSubmit={handleSubmit}>
-              <div className="input-group">
-                <label>Account Type</label>
-                <div className="role-selector">
-                  <label className={`role-option ${role === 'user' ? 'active' : ''}`}>
-                    <input 
-                      type="radio" 
-                      name="role" 
-                      value="user" 
-                      checked={role === 'user'} 
-                      onChange={e => setRole(e.target.value)}
-                    />
-                    <span className="role-icon">👤</span>
-                    <span className="role-label">User</span>
-                  </label>
-                  <label className={`role-option ${role === 'admin' ? 'active' : ''}`}>
-                    <input 
-                      type="radio" 
-                      name="role" 
-                      value="admin" 
-                      checked={role === 'admin'} 
-                      onChange={e => setRole(e.target.value)}
-                    />
-                    <span className="role-icon">👨‍💼</span>
-                    <span className="role-label">Admin</span>
-                  </label>
-                </div>
-              </div>
-              
-              {mode === 'register' &&
+
+            {!isForgotFlow ? (
+              <form onSubmit={handleSubmit}>
+                {message && (
+                  <div className={`form-message ${message.type}`}>
+                    {message.text}
+                  </div>
+                )}
+
                 <div className="input-group">
-                  <label htmlFor="name">Name</label>
-                  <input id="name" type="text" value={name} onChange={e=>setName(e.target.value)} required />
+                  <label>Account Type</label>
+                  <div className="role-selector">
+                    <label className={`role-option ${role === 'user' ? 'active' : ''}`}>
+                      <input 
+                        type="radio" 
+                        name="role" 
+                        value="user" 
+                        checked={role === 'user'} 
+                        onChange={e => setRole(e.target.value)}
+                      />
+                      <span className="role-icon">👤</span>
+                      <span className="role-label">User</span>
+                    </label>
+                    <label className={`role-option ${role === 'admin' ? 'active' : ''}`}>
+                      <input 
+                        type="radio" 
+                        name="role" 
+                        value="admin" 
+                        checked={role === 'admin'} 
+                        onChange={e => setRole(e.target.value)}
+                      />
+                      <span className="role-icon">👨‍💼</span>
+                      <span className="role-label">Admin</span>
+                    </label>
+                  </div>
                 </div>
-              }
-              <div className="input-group">
-                <label htmlFor="email">Email</label>
-                <input id="email" type="email" value={email} onChange={e=>setEmail(e.target.value)} required />
-              </div>
-              <div className="input-group">
-                <label htmlFor="password">Password</label>
-                <input id="password" type="password" value={password} onChange={e=>setPassword(e.target.value)} required />
-              </div>
-              <button type="submit" className="submit-btn">{mode === 'login' ? 'Sign In' : 'Create Account'}</button>
-              <div className="auth-switch">
-                <button type="button" className="switch-btn" onClick={()=>setMode(mode==='login'?'register':'login')}>
-                  {mode === 'login' ? 'Need an account? Sign up' : 'Already have an account? Sign in'}
+                
+                {mode === 'register' && (
+                  <div className="input-group">
+                    <label htmlFor="name">Name</label>
+                    <input
+                      id="name"
+                      type="text"
+                      value={name}
+                      onChange={e => setName(e.target.value)}
+                      required
+                    />
+                  </div>
+                )}
+                <div className="input-group">
+                  <label htmlFor="email">Email</label>
+                  <input
+                    id="email"
+                    type="email"
+                    value={email}
+                    onChange={e => setEmail(e.target.value)}
+                    required
+                  />
+                </div>
+                <div className="input-group">
+                  <label htmlFor="password">Password</label>
+                  <input
+                    id="password"
+                    type="password"
+                    value={password}
+                    onChange={e => setPassword(e.target.value)}
+                    required
+                  />
+                </div>
+                <button type="submit" className="submit-btn">
+                  {mode === 'login' ? 'Sign In' : 'Create Account'}
                 </button>
-              </div>
-            </form>
+                <div className="auth-switch">
+                  <button
+                    type="button"
+                    className="switch-btn"
+                    onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
+                  >
+                    {mode === 'login'
+                      ? 'Need an account? Sign up'
+                      : 'Already have an account? Sign in'}
+                  </button>
+                  <button
+                    type="button"
+                    className="forgot-password-link"
+                    onClick={startForgotFlow}
+                  >
+                    Forgot Password?
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <>
+                {forgotStep === 'request' && (
+                  <form onSubmit={handleForgotRequestSubmit}>
+                    {message && (
+                      <div className={`form-message ${message.type}`}>
+                        {message.text}
+                      </div>
+                    )}
+                    <div className="input-group">
+                      <label htmlFor="fp-email">Email</label>
+                      <input
+                        id="fp-email"
+                        type="email"
+                        value={email}
+                        onChange={e => setEmail(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="input-group">
+                      <label htmlFor="fp-category">Category</label>
+                      <select
+                        id="fp-category"
+                        value={category}
+                        onChange={e => setCategory(e.target.value)}
+                      >
+                        <option value="user">User</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
+                    <div className="form-actions">
+                      <button
+                        type="button"
+                        className="cancel-btn"
+                        onClick={() => {
+                          setIsForgotFlow(false);
+                          setForgotStep('request');
+                          setMessage(null);
+                        }}
+                      >
+                        Back to Login
+                      </button>
+                      <button
+                        type="submit"
+                        className="save-btn"
+                        disabled={submitting}
+                      >
+                        {submitting ? 'Sending...' : 'Send OTP'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+                {forgotStep === 'reset' && (
+                  <form onSubmit={handleResetPasswordSubmit}>
+                    {message && (
+                      <div className={`form-message ${message.type}`}>
+                        {message.text}
+                      </div>
+                    )}
+                    <div className="input-group">
+                      <label htmlFor="fp-otp">OTP</label>
+                      <input
+                        id="fp-otp"
+                        type="text"
+                        value={otp}
+                        onChange={e => setOtp(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="input-group">
+                      <label htmlFor="fp-new-password">New Password</label>
+                      <input
+                        id="fp-new-password"
+                        type="password"
+                        value={newPassword}
+                        onChange={e => setNewPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="input-group">
+                      <label htmlFor="fp-confirm-password">Confirm New Password</label>
+                      <input
+                        id="fp-confirm-password"
+                        type="password"
+                        value={confirmNewPassword}
+                        onChange={e => setConfirmNewPassword(e.target.value)}
+                        required
+                      />
+                    </div>
+                    <div className="form-actions">
+                      <button
+                        type="button"
+                        className="cancel-btn"
+                        onClick={() => {
+                          setForgotStep('request');
+                          setOtp('');
+                          setNewPassword('');
+                          setConfirmNewPassword('');
+                          setMessage(null);
+                        }}
+                      >
+                        Back
+                      </button>
+                      <button
+                        type="submit"
+                        className="save-btn"
+                        disabled={submitting}
+                      >
+                        {submitting ? 'Resetting...' : 'Reset Password'}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </>
+            )}
           </div>
         </div>
       )}

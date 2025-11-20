@@ -6,7 +6,6 @@ const User = require('../models/User');
 const { sendPasswordResetOTP } = require('../utils/mailer');
 const auth = require('../middleware/auth');
 
-// Register
 router.post('/register', async (req, res) => {
   try {
     const { email, password, name, role } = req.body;
@@ -15,7 +14,7 @@ router.post('/register', async (req, res) => {
 
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
-    const userRole = role || 'user'; // Default to 'user' if not provided
+    const userRole = role || 'user'; 
     const user = new User({ email, passwordHash, name, role: userRole });
     await user.save();
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET);
@@ -26,7 +25,7 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Login
+
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -41,7 +40,6 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Forgot Password - generate and send OTP
 router.post('/forgot-password', async (req, res) => {
   try {
     let { email, category } = req.body;
@@ -75,7 +73,6 @@ router.post('/forgot-password', async (req, res) => {
   }
 });
 
-// Reset Password - verify OTP and update password
 router.post('/reset-password', async (req, res) => {
   try {
     let { email, category, otp, newPassword } = req.body;
@@ -122,7 +119,6 @@ router.post('/reset-password', async (req, res) => {
   }
 });
 
-// Me - return current user
 router.get('/me', auth, async (req, res) => {
   try {
     const user = await User.findById(req.user.id).select('-passwordHash');

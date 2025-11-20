@@ -30,7 +30,7 @@ export default function ReportGenerator({ token, onClose }) {
         startDate = startOfYear(selectedDate);
         endDate = endOfYear(selectedDate);
       } else {
-        // Custom range - use current month as default
+       
         startDate = startOfMonth(selectedDate);
         endDate = endOfMonth(selectedDate);
       }

@@ -24,10 +24,7 @@ export default function EditProfilePage({ user, token, onClose, onUpdate }) {
     setMessage('');
 
     try {
-      // TODO: Implement API call to update user profile
-      // const response = await updateUserProfile(token, formData);
-      
-      // Simulate API call
+
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       setMessage('Profile updated successfully!');

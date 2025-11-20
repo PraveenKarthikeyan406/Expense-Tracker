@@ -3,7 +3,6 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const Expense = require('../models/Expense');
 
-// Get expenses for user (optional query: startDate, endDate)
 router.get('/', auth, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
@@ -20,7 +19,6 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
-// Create expense
 router.post('/', auth, async (req, res) => {
   try {
     const { title, amount, category, date, notes } = req.body;
@@ -32,7 +30,6 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
-// Update
 router.put('/:id', auth, async (req, res) => {
   try {
     const e = await Expense.findOneAndUpdate({ _id: req.params.id, user: req.user.id }, req.body, { new: true });
@@ -43,7 +40,6 @@ router.put('/:id', auth, async (req, res) => {
   }
 });
 
-// Delete
 router.delete('/:id', auth, async (req, res) => {
   try {
     const e = await Expense.findOneAndDelete({ _id: req.params.id, user: req.user.id });

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { login, register, forgotPassword, resetPassword } from '../services/auth';
+import { login, register, forgotPassword, resetPassword, signupSendOTP, signupVerifyOTP } from '../services/auth';
 
 const AuthModal = ({ onAuth, initialMode = 'login', openByDefault = false, showInlineButtons = true }) => {
   const [mode, setMode] = useState(initialMode);
@@ -17,6 +17,12 @@ const AuthModal = ({ onAuth, initialMode = 'login', openByDefault = false, showI
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   const [message, setMessage] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  
+  const [isSignupOTPFlow, setIsSignupOTPFlow] = useState(false);
+  const [signupUserId, setSignupUserId] = useState(null);
+  const [nameError, setNameError] = useState('');
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
 
   const resetTransientState = () => {
     setIsForgotFlow(false);
@@ -27,23 +33,135 @@ const AuthModal = ({ onAuth, initialMode = 'login', openByDefault = false, showI
     setConfirmNewPassword('');
     setMessage(null);
     setSubmitting(false);
+    setIsSignupOTPFlow(false);
+    setSignupUserId(null);
+    setNameError('');
+    setEmailError('');
+    setPasswordError('');
+  };
+
+  const validateNameField = (value) => {
+    if (!value || value.trim().length === 0) {
+      return 'Name is required';
+    }
+    if (!/^[A-Za-z\s]+$/.test(value)) {
+      return 'Name must contain only alphabets and spaces';
+    }
+    return '';
+  };
+
+  const validateEmailField = (value) => {
+    if (!value || value.trim().length === 0) {
+      return 'Email is required';
+    }
+    if (/^\d/.test(value)) {
+      return 'Email cannot start with a number';
+    }
+    if (!/^[a-zA-Z][a-zA-Z0-9]{2,}@gmail\.com$/.test(value)) {
+      return 'Enter valid email';
+    }
+    return '';
+  };
+
+  const validatePasswordField = (value, nameValue) => {
+    if (!value || value.length === 0) {
+      return 'Password is required';
+    }
+    if (value.length < 6) {
+      return 'Password must be at least 6 characters long';
+    }
+    const consecutiveNumbers = /^(\d)\1+$|012345|123456|234567|345678|456789|567890|654321|543210|432109|321098|210987|109876|098765/;
+    if (consecutiveNumbers.test(value)) {
+      return 'Choose a different strong password (avoid consecutive or repeated numbers)';
+    }
+    if (nameValue && value.toLowerCase().includes(nameValue.toLowerCase().split(' ')[0])) {
+      return 'Choose a different strong password (password should not contain your name)';
+    }
+    const weakPasswords = ['password', 'pass123', 'qwerty', 'abc123', '123abc', 'password123'];
+    if (weakPasswords.includes(value.toLowerCase())) {
+      return 'Choose a different strong password (this password is too common)';
+    }
+    const hasLetter = /[a-zA-Z]/.test(value);
+    const hasNumber = /\d/.test(value);
+    if (!hasLetter || !hasNumber) {
+      return 'Choose a different strong password (include both letters and numbers)';
+    }
+    return '';
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setMessage(null);
+    setNameError('');
+    setEmailError('');
+    setPasswordError('');
+    
     try {
-      const res = mode === 'login'
-        ? await login({ email, password })
-        : await register({ email, password, name, role });
-      onAuth(res.token, res.user);
-      resetTransientState();
-      setIsModalOpen(false);
+      if (mode === 'login') {
+        const res = await login({ email, password });
+        onAuth(res.token, res.user);
+        resetTransientState();
+        setIsModalOpen(false);
+      } else {
+        
+        const nameErr = validateNameField(name);
+        const emailErr = validateEmailField(email);
+        const passwordErr = validatePasswordField(password, name);
+        
+        if (nameErr || emailErr || passwordErr) {
+          setNameError(nameErr);
+          setEmailError(emailErr);
+          setPasswordError(passwordErr);
+          return;
+        }
+        
+        setSubmitting(true);
+        const res = await signupSendOTP({ email, password, name, role });
+        setSignupUserId(res.userId);
+        setIsSignupOTPFlow(true);
+        setMessage({
+          type: 'success',
+          text: res.message
+        });
+        setSubmitting(false);
+      }
     } catch (err) {
+      setSubmitting(false);
       setMessage({
         type: 'error',
         text: err?.response?.data?.message || 'Auth failed'
       });
+    }
+  };
+
+  const handleSignupOTPVerify = async (e) => {
+    e.preventDefault();
+    setMessage(null);
+    
+    if (!otp || otp.trim().length === 0) {
+      setMessage({ type: 'error', text: 'Please enter the OTP' });
+      return;
+    }
+    
+    setSubmitting(true);
+    try {
+      const res = await signupVerifyOTP({ userId: signupUserId, otp });
+      onAuth(res.token, res.user);
+      setMessage({
+        type: 'success',
+        text: res.message
+      });
+      setTimeout(() => {
+        resetTransientState();
+        setIsModalOpen(false);
+      }, 1500);
+    } catch (err) {
+      setMessage({
+        type: 'error',
+        text: err?.response?.data?.message || 'OTP verification failed'
+      });
+    } finally {
+      setSubmitting(false);
     }
   };
 
@@ -150,9 +268,11 @@ const AuthModal = ({ onAuth, initialMode = 'login', openByDefault = false, showI
               <h2>
                 {isForgotFlow
                   ? 'Reset Password'
-                  : mode === 'login'
-                    ? 'Sign In'
-                    : 'Create Account'}
+                  : isSignupOTPFlow
+                    ? 'Verify Email'
+                    : mode === 'login'
+                      ? 'Sign In'
+                      : 'Create Account'}
               </h2>
             </div>
             <div className="auth-image-container">
@@ -165,7 +285,7 @@ const AuthModal = ({ onAuth, initialMode = 'login', openByDefault = false, showI
               />
             </div>
 
-            {!isForgotFlow ? (
+            {!isForgotFlow && !isSignupOTPFlow ? (
               <form onSubmit={handleSubmit}>
                 {message && (
                   <div className={`form-message ${message.type}`}>
@@ -211,6 +331,7 @@ const AuthModal = ({ onAuth, initialMode = 'login', openByDefault = false, showI
                       onChange={e => setName(e.target.value)}
                       required
                     />
+                    {nameError && <div className="field-error">{nameError}</div>}
                   </div>
                 )}
                 <div className="input-group">
@@ -222,6 +343,7 @@ const AuthModal = ({ onAuth, initialMode = 'login', openByDefault = false, showI
                     onChange={e => setEmail(e.target.value)}
                     required
                   />
+                  {emailError && <div className="field-error">{emailError}</div>}
                 </div>
                 <div className="input-group">
                   <label htmlFor="password">Password</label>
@@ -232,9 +354,10 @@ const AuthModal = ({ onAuth, initialMode = 'login', openByDefault = false, showI
                     onChange={e => setPassword(e.target.value)}
                     required
                   />
+                  {passwordError && <div className="field-error">{passwordError}</div>}
                 </div>
-                <button type="submit" className="submit-btn">
-                  {mode === 'login' ? 'Sign In' : 'Create Account'}
+                <button type="submit" className="submit-btn" disabled={submitting}>
+                  {submitting ? 'Processing...' : (mode === 'login' ? 'Sign In' : 'Create Account')}
                 </button>
                 <div className="auth-switch">
                   <button
@@ -252,6 +375,49 @@ const AuthModal = ({ onAuth, initialMode = 'login', openByDefault = false, showI
                     onClick={startForgotFlow}
                   >
                     Forgot Password?
+                  </button>
+                </div>
+              </form>
+            ) : isSignupOTPFlow ? (
+              <form onSubmit={handleSignupOTPVerify}>
+                {message && (
+                  <div className={`form-message ${message.type}`}>
+                    {message.text}
+                  </div>
+                )}
+                <div className="input-group">
+                  <label htmlFor="signup-otp">Enter OTP</label>
+                  <input
+                    id="signup-otp"
+                    type="text"
+                    value={otp}
+                    onChange={e => setOtp(e.target.value)}
+                    placeholder="Enter 6-digit OTP"
+                    maxLength="6"
+                    required
+                  />
+                  <small style={{ color: '#666', fontSize: '12px', marginTop: '5px', display: 'block' }}>
+                    Check your email for the verification code
+                  </small>
+                </div>
+                <div className="form-actions">
+                  <button
+                    type="button"
+                    className="cancel-btn"
+                    onClick={() => {
+                      setIsSignupOTPFlow(false);
+                      setOtp('');
+                      setMessage(null);
+                    }}
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="submit"
+                    className="save-btn"
+                    disabled={submitting}
+                  >
+                    {submitting ? 'Verifying...' : 'Verify OTP'}
                   </button>
                 </div>
               </form>

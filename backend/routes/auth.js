@@ -3,8 +3,114 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
-const { sendPasswordResetOTP } = require('../utils/mailer');
+const { sendPasswordResetOTP, sendSignupVerificationOTP } = require('../utils/mailer');
+const { validateName, validateEmail, validatePassword } = require('../utils/validators');
 const auth = require('../middleware/auth');
+
+
+router.post('/signup-send-otp', async (req, res) => {
+  try {
+    let { email, password, name, role } = req.body;
+    
+    const nameValidation = validateName(name);
+    if (!nameValidation.valid) {
+      return res.status(400).json({ message: nameValidation.message });
+    }
+    
+    const emailValidation = validateEmail(email);
+    if (!emailValidation.valid) {
+      return res.status(400).json({ message: emailValidation.message });
+    }
+    
+    const passwordValidation = validatePassword(password, nameValidation.value);
+    if (!passwordValidation.valid) {
+      return res.status(400).json({ message: passwordValidation.message });
+    }
+    
+    email = emailValidation.value;
+    name = nameValidation.value;
+    
+    const exists = await User.findOne({ email });
+    if (exists) {
+      return res.status(400).json({ message: 'User already exists with this email' });
+    }
+    
+    const otp = (Math.floor(100000 + Math.random() * 900000)).toString();
+    const salt = await bcrypt.genSalt(10);
+    const otpHash = await bcrypt.hash(otp, salt);
+    const passwordHash = await bcrypt.hash(password, salt);
+    
+    const userRole = role || 'user';
+    const user = new User({
+      email,
+      passwordHash,
+      name,
+      role: userRole,
+      isEmailVerified: false,
+      signupOTPHash: otpHash,
+      signupOTPExpiresAt: new Date(Date.now() + 10 * 60 * 1000) 
+    });
+    await user.save();
+    
+    await sendSignupVerificationOTP(email, otp);
+    
+    return res.json({ 
+      message: 'OTP sent to your email address. Please verify to complete signup.',
+      userId: user._id 
+    });
+  } catch (err) {
+    console.error('Error in /signup-send-otp:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.post('/signup-verify-otp', async (req, res) => {
+  try {
+    let { userId, otp } = req.body;
+    
+    if (!userId || !otp) {
+      return res.status(400).json({ message: 'User ID and OTP are required' });
+    }
+    
+    otp = typeof otp === 'string' ? otp.trim() : '';
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    if (user.isEmailVerified) {
+      return res.status(400).json({ message: 'Email already verified. Please login.' });
+    }
+    
+    if (!user.signupOTPHash || !user.signupOTPExpiresAt || user.signupOTPExpiresAt < new Date()) {
+   
+      await User.findByIdAndDelete(userId);
+      return res.status(400).json({ message: 'OTP has expired. Please signup again.' });
+    }
+    
+    const isMatch = await bcrypt.compare(otp, user.signupOTPHash);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Invalid OTP' });
+    }
+    
+    user.isEmailVerified = true;
+    user.signupOTPHash = undefined;
+    user.signupOTPExpiresAt = undefined;
+    await user.save();
+    
+    const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET);
+    
+    return res.json({ 
+      token, 
+      user: { id: user._id, email: user.email, name: user.name, role: user.role },
+      message: 'Email verified successfully. Welcome!'
+    });
+  } catch (err) {
+    console.error('Error in /signup-verify-otp:', err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
 
 router.post('/register', async (req, res) => {
   try {
@@ -15,7 +121,7 @@ router.post('/register', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
     const userRole = role || 'user'; 
-    const user = new User({ email, passwordHash, name, role: userRole });
+    const user = new User({ email, passwordHash, name, role: userRole, isEmailVerified: true });
     await user.save();
     const token = jwt.sign({ id: user._id, role: user.role }, process.env.JWT_SECRET);
     res.json({ token, user: { id: user._id, email, name, role: user.role } });

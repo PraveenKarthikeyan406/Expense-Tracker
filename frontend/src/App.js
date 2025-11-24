@@ -119,6 +119,7 @@ export default function App(){
               ) : showReportGenerator ? (
                 <ReportGenerator 
                   token={token} 
+                  user={user}
                   onClose={() => setShowReportGenerator(false)} 
                 />
               ) : (

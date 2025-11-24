@@ -23,3 +23,13 @@ export async function resetPassword({ email, category, otp, newPassword }){
   const res = await axios.post(`${API}/api/auth/reset-password`, { email, category, otp, newPassword });
   return res.data;
 }
+
+export async function signupSendOTP({ email, password, name, role }){
+  const res = await axios.post(`${API}/api/auth/signup-send-otp`, { email, password, name, role });
+  return res.data;
+}
+
+export async function signupVerifyOTP({ userId, otp }){
+  const res = await axios.post(`${API}/api/auth/signup-verify-otp`, { userId, otp });
+  return res.data;
+}

@@ -1273,7 +1273,6 @@ body.dark-mode .month-nav-btn:hover {
   font-weight: 600;
 }
 
-/* Modal Styles */
 .modal-backdrop {
   position: fixed;
   inset: 0;
@@ -1398,6 +1397,13 @@ body.dark-mode .month-nav-btn:hover {
   margin-bottom: 6px;
   font-weight: 500;
   color: var(--text-dark);
+}
+
+.field-error {
+  color: var(--danger);
+  font-size: 12px;
+  margin-top: 4px;
+  display: block;
 }
 
 input, textarea, select {

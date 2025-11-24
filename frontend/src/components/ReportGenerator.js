@@ -4,7 +4,7 @@ import { format, startOfMonth, endOfMonth, startOfYear, endOfYear } from 'date-f
 import { getCategoryEmoji } from './categoryIcons';
 import html2pdf from 'html2pdf.js';
 
-export default function ReportGenerator({ token, onClose }) {
+export default function ReportGenerator({ token, user, onClose }) {
   const [reportType, setReportType] = useState('monthly');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [expenses, setExpenses] = useState([]);
@@ -125,7 +125,6 @@ export default function ReportGenerator({ token, onClose }) {
     setDownloading(true);
     console.log('Generating PDF for period:', reportData.period);
 
-    // Create HTML content for PDF
     const reportHTML = `
         <!DOCTYPE html>
         <html lang="en">
@@ -183,6 +182,43 @@ export default function ReportGenerator({ token, onClose }) {
             
             .report-body {
               padding: 40px;
+            }
+            
+            .user-details {
+              margin-bottom: 30px;
+              padding: 20px 24px;
+              border-radius: 10px;
+              background: #f8fafc;
+              border: 1px solid #e2e8f0;
+            }
+            
+            .user-details-header {
+              font-size: 16px;
+              font-weight: 700;
+              letter-spacing: 0.08em;
+              text-transform: uppercase;
+              color: #4a5568;
+              margin-bottom: 12px;
+            }
+            
+            .user-details-table {
+              width: 100%;
+              border-collapse: collapse;
+              font-size: 14px;
+            }
+            
+            .user-details-table td {
+              padding: 6px 0;
+            }
+            
+            .user-details-table td:first-child {
+              width: 150px;
+              color: #718096;
+              font-weight: 600;
+            }
+            
+            .user-details-table td:last-child {
+              color: #2d3748;
             }
             
             .summary-section {
@@ -458,12 +494,30 @@ export default function ReportGenerator({ token, onClose }) {
         <body>
           <div class="report-container">
             <div class="report-header">
-              <h1>💰 Financial Report</h1>
+              <h1> Financial Report</h1>
               <div class="period">${reportData.period}</div>
               <div class="generated-date">Generated on ${format(new Date(), 'MMMM dd, yyyy')} at ${format(new Date(), 'HH:mm:ss')}</div>
             </div>
             
             <div class="report-body">
+              <div class="user-details">
+                <div class="user-details-header">Account Holder</div>
+                <table class="user-details-table">
+                  <tr>
+                    <td>Full Name</td>
+                    <td>${user && user.name ? user.name : 'N/A'}</td>
+                  </tr>
+                  <tr>
+                    <td>Email</td>
+                    <td>${user && user.email ? user.email : 'N/A'}</td>
+                  </tr>
+                  <tr>
+                    <td>Role</td>
+                    <td>${user && user.role ? (user.role.charAt(0).toUpperCase() + user.role.slice(1)) : 'User'}</td>
+                  </tr>
+                </table>
+              </div>
+              
               <!-- Summary Cards -->
               <div class="summary-section">
                 <div class="summary-card income">
@@ -678,7 +732,6 @@ export default function ReportGenerator({ token, onClose }) {
 
     console.log('Generating report for printing:', reportData.period);
 
-    // Create HTML content for printing (same as PDF)
     const reportHTML = `
         <!DOCTYPE html>
         <html lang="en">
@@ -730,6 +783,43 @@ export default function ReportGenerator({ token, onClose }) {
               font-size: 14px;
               opacity: 0.85;
               margin-top: 10px;
+            }
+            
+            .user-details {
+              margin-bottom: 30px;
+              padding: 20px 24px;
+              border-radius: 10px;
+              background: #f8fafc;
+              border: 1px solid #e2e8f0;
+            }
+            
+            .user-details-header {
+              font-size: 16px;
+              font-weight: 700;
+              letter-spacing: 0.08em;
+              text-transform: uppercase;
+              color: #4a5568;
+              margin-bottom: 12px;
+            }
+            
+            .user-details-table {
+              width: 100%;
+              border-collapse: collapse;
+              font-size: 14px;
+            }
+            
+            .user-details-table td {
+              padding: 6px 0;
+            }
+            
+            .user-details-table td:first-child {
+              width: 150px;
+              color: #718096;
+              font-weight: 600;
+            }
+            
+            .user-details-table td:last-child {
+              color: #2d3748;
             }
             
             .summary-section {
@@ -993,6 +1083,24 @@ export default function ReportGenerator({ token, onClose }) {
               <h1>💰 Financial Report</h1>
               <div class="period">${reportData.period}</div>
               <div class="generated-date">Generated on ${format(new Date(), 'MMMM dd, yyyy')} at ${format(new Date(), 'HH:mm:ss')}</div>
+            </div>
+            
+            <div class="user-details">
+              <div class="user-details-header">Account Holder</div>
+              <table class="user-details-table">
+                <tr>
+                  <td>Full Name</td>
+                  <td>${user && user.name ? user.name : 'N/A'}</td>
+                </tr>
+                <tr>
+                  <td>Email</td>
+                  <td>${user && user.email ? user.email : 'N/A'}</td>
+                </tr>
+                <tr>
+                  <td>Role</td>
+                  <td>${user && user.role ? (user.role.charAt(0).toUpperCase() + user.role.slice(1)) : 'User'}</td>
+                </tr>
+              </table>
             </div>
             
             <!-- Summary Cards -->
